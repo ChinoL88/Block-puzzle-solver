@@ -45,6 +45,25 @@ footer{text-align:center;color:#94a3b8;font-size:12px;padding:16px}
 </section>
 <section class="card">
 <h2>3. Próxima función</h2>
+<section class="card">
+<h2>3. Detección experimental del tablero</h2>
+<div class="hint">Elegí las dimensiones aproximadas del tablero y probá detectar las casillas con colores.</div>
+<label>Columnas
+<select id="cols">
+<option>6</option><option>7</option><option selected>8</option>
+<option>9</option><option>10</option><option>11</option>
+</select>
+</label>
+<label>Filas
+<select id="rows">
+<option>6</option><option>7</option><option selected>8</option>
+<option>9</option><option>10</option><option>11</option><option>12</option>
+</select>
+</label>
+<button id="detect" class="secondary" disabled>Detectar tablero</button>
+<div id="gridInfo" class="results">Primero elegí una captura.</div>
+<div id="grid" style="display:grid;gap:4px;margin-top:12px"></div>
+</section>
 <div class="note">Este prototipo todavía no calcula movimientos. El siguiente desarrollo es detectar la cuadrícula, reconocer las formas de las piezas y sus salidas, y después buscar una secuencia válida de movimientos.</div>
 </section>
 <footer>Block Puzzle Solver · Prototipo de prueba</footer>
@@ -84,6 +103,95 @@ function analyze(){
  results.textContent=`Tamaño de imagen: ${currentImage.naturalWidth} × ${currentImage.naturalHeight}\nMuestras de color: ${colorful} / ${sampled}\n\nColores aproximados:\n${top}\n\nNota: esto es solo un recuento básico de píxeles; todavía no reconoce piezas ni genera una solución.`;
  again.disabled=false;
 }
+const detectBtn = document.getElementById('detect');
+const gridEl = document.getElementById('grid');
+const gridInfo = document.getElementById('gridInfo');
+
+detectBtn.addEventListener('click', detectGrid);
+
+input.addEventListener('change', () => {
+  if (preview.complete && preview.naturalWidth) {
+    detectBtn.disabled = false;
+  }
+});
+
+function detectGrid() {
+  if (!currentImage || !currentImage.naturalWidth) {
+    gridInfo.textContent = 'Primero elegí una captura.';
+    return;
+  }
+
+  const cols = Number(document.getElementById('cols').value);
+  const rows = Number(document.getElementById('rows').value);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', {willReadFrequently: true});
+
+  canvas.width = 240;
+  canvas.height = Math.round(
+    240 * currentImage.naturalHeight / currentImage.naturalWidth
+  );
+
+  ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+
+  const image = ctx.getImageData(
+    0, 0, canvas.width, canvas.height
+  ).data;
+
+  const left = Math.floor(canvas.width * 0.08);
+  const right = Math.floor(canvas.width * 0.92);
+  const top = Math.floor(canvas.height * 0.18);
+  const bottom = Math.floor(canvas.height * 0.72);
+
+  const cellW = (right - left) / cols;
+  const cellH = (bottom - top) / rows;
+
+  gridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  gridEl.innerHTML = '';
+
+  let marked = 0;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      let colorful = 0;
+      let total = 0;
+
+      const x0 = Math.floor(left + (col + 0.2) * cellW);
+      const x1 = Math.floor(left + (col + 0.8) * cellW);
+      const y0 = Math.floor(top + (row + 0.2) * cellH);
+      const y1 = Math.floor(top + (row + 0.8) * cellH);
+
+      for (let y = y0; y < y1; y += 2) {
+        for (let x = x0; x < x1; x += 2) {
+          const i = (y * canvas.width + x) * 4;
+          const r = image[i];
+          const g = image[i + 1];
+          const b = image[i + 2];
+
+          if (Math.max(r, g, b) - Math.min(r, g, b) > 35) {
+            colorful++;
+          }
+          total++;
+        }
+      }
+
+      const filled = total > 0 && colorful / total > 0.3;
+      if (filled) marked++;
+
+      const cell = document.createElement('div');
+      cell.style.aspectRatio = '1';
+      cell.style.border = '1px solid #cbd5e1';
+      cell.style.borderRadius = '5px';
+      cell.style.background = filled ? '#1769aa' : '#f8fafc';
+      gridEl.appendChild(cell);
+    }
+  }
+
+  gridInfo.textContent =
+    `Cuadrícula estimada: ${rows} × ${cols}\n` +
+    `Casillas marcadas: ${marked} de ${rows * cols}\n\n` +
+    'Resultado experimental: revisá si coincide con el tablero real.';
+ }
+   
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
 </script>
 </body>
