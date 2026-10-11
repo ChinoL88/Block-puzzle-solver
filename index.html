@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1769aa">
+<meta name="description" content="Prototipo móvil para analizar capturas de puzzles de bloques.">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Block Puzzle Solver</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1e293b;background:#f3f6fa}
+*{box-sizing:border-box}body{margin:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+main{max-width:680px;margin:auto;padding:18px}
+header{display:flex;align-items:center;gap:13px;margin:8px 0 20px}
+.logo{width:54px;height:54px;border-radius:16px;background:#1769aa;color:white;display:grid;place-items:center;font-size:28px;box-shadow:0 5px 14px #1769aa33}
+h1{font-size:23px;margin:0} .sub{color:#64748b;font-size:13px;margin-top:3px}
+.card{background:white;border:1px solid #e2e8f0;border-radius:18px;padding:16px;margin:14px 0;box-shadow:0 4px 14px #0f172a08}
+h2{font-size:17px;margin:0 0 9px}.hint{font-size:14px;color:#64748b;line-height:1.45}
+button,.filelabel{border:0;border-radius:13px;padding:13px 16px;font-weight:700;font-size:15px;cursor:pointer}
+.primary{background:#1769aa;color:white;width:100%;margin-top:12px}
+.secondary{background:#e8f1fa;color:#15558a;width:100%;margin-top:9px}
+.filelabel{display:block;text-align:center;background:#1769aa;color:white;margin-top:12px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.preview{width:100%;max-height:52vh;object-fit:contain;border-radius:12px;background:#e9eef4;display:none;margin-top:14px}
+.status{font-weight:700;margin-top:10px;color:#17633b}.results{white-space:pre-wrap;font-size:14px;line-height:1.5;color:#334155}
+.note{background:#fff8e6;border:1px solid #f2dfaa;border-radius:12px;padding:12px;font-size:13px;line-height:1.45;color:#76520b}
+footer{text-align:center;color:#94a3b8;font-size:12px;padding:16px}
+</style>
+</head>
+<body>
+<main>
+<header><div class="logo">🧩</div><div><h1>Block Puzzle Solver</h1><div class="sub">Prototipo móvil · versión 0.1</div></div></header>
+<section class="card">
+<h2>1. Elegí una captura</h2>
+<div class="hint">Seleccioná una captura del juego desde la galería de tu celular. El análisis se hace localmente en esta primera versión.</div>
+<label class="filelabel" for="imageInput">📷 Elegir imagen</label>
+<input id="imageInput" type="file" accept="image/*">
+<img id="preview" class="preview" alt="Vista previa de la captura">
+<div id="status" class="status" aria-live="polite">Esperando una imagen.</div>
+</section>
+<section class="card">
+<h2>2. Análisis inicial</h2>
+<div id="results" class="results">Cuando elijas una captura, mostraremos una estimación de los colores dominantes.</div>
+<button id="analyzeAgain" class="secondary" disabled>Volver a analizar</button>
+</section>
+<section class="card">
+<h2>3. Próxima función</h2>
+<div class="note">Este prototipo todavía no calcula movimientos. El siguiente desarrollo es detectar la cuadrícula, reconocer las formas de las piezas y sus salidas, y después buscar una secuencia válida de movimientos.</div>
+</section>
+<footer>Block Puzzle Solver · Prototipo de prueba</footer>
+</main>
+<script>
+const input=document.getElementById('imageInput'), preview=document.getElementById('preview');
+const statusEl=document.getElementById('status'), results=document.getElementById('results'), again=document.getElementById('analyzeAgain');
+let currentImage=null;
+input.addEventListener('change',()=>{
+ const file=input.files && input.files[0]; if(!file)return;
+ if(!file.type.startsWith('image/')){statusEl.textContent='Elegí un archivo de imagen.';return;}
+ const url=URL.createObjectURL(file); preview.onload=()=>{currentImage=preview;preview.style.display='block';analyze();};preview.src=url;
+ statusEl.textContent='Imagen cargada…';
+});
+again.addEventListener('click',analyze);
+function analyze(){
+ if(!currentImage||!currentImage.naturalWidth){statusEl.textContent='Primero elegí una captura.';return;}
+ const c=document.createElement('canvas'), ctx=c.getContext('2d',{willReadFrequently:true});
+ const scale=Math.min(1,240/currentImage.naturalWidth,240/currentImage.naturalHeight);
+ c.width=Math.max(1,Math.round(currentImage.naturalWidth*scale));c.height=Math.max(1,Math.round(currentImage.naturalHeight*scale));
+ ctx.drawImage(currentImage,0,0,c.width,c.height);
+ const x0=Math.floor(c.width*.08),x1=Math.floor(c.width*.92),y0=Math.floor(c.height*.18),y1=Math.floor(c.height*.72);
+ const bins={'Rojo':0,'Naranja / amarillo':0,'Verde':0,'Celeste / azul':0,'Violeta / rosa':0};
+ let sampled=0,colorful=0;
+ for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){
+  const d=ctx.getImageData(x,y,1,1).data,r=d[0],g=d[1],b=d[2],hi=Math.max(r,g,b),lo=Math.min(r,g,b);sampled++;
+  if(hi-lo>45&&hi>100){colorful++;
+   if(r>g*1.25&&r>b*1.25)bins['Rojo']++;
+   else if(r>130&&g>85&&b<100)bins['Naranja / amarillo']++;
+   else if(g>r*1.18&&g>b*1.05)bins['Verde']++;
+   else if(b>r*1.12&&b>g*1.02)bins['Celeste / azul']++;
+   else if(r>130&&b>100)bins['Violeta / rosa']++;
+  }
+ }
+ const top=Object.entries(bins).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`• ${k}: ${v} muestras`).join('\n');
+ statusEl.textContent=(colorful/Math.max(1,sampled)>.08)?'Análisis inicial completado.':'Imagen cargada; el tablero no se pudo identificar con confianza.';
+ results.textContent=`Tamaño de imagen: ${currentImage.naturalWidth} × ${currentImage.naturalHeight}\nMuestras de color: ${colorful} / ${sampled}\n\nColores aproximados:\n${top}\n\nNota: esto es solo un recuento básico de píxeles; todavía no reconoce piezas ni genera una solución.`;
+ again.disabled=false;
+}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+</body>
+</html>

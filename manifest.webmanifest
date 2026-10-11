@@ -1,0 +1,10 @@
+{
+  "name": "Block Puzzle Solver",
+  "short_name": "Puzzle Solver",
+  "description": "Prototipo móvil para analizar capturas de puzzles de bloques",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#1769aa",
+  "icons": []
+}
